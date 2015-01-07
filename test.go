@@ -124,6 +124,12 @@ func main() {
 			//fmt.Println("****OK")
 		}
 	}
+
+	// Check adding points outside <-1,1,-1,1,-1,1>
+	ot.Add(Foo{1000}, -2.0, 2.0, -2.0)
+	v_pnt, _ := ot.FindNearest(-2.0,2.0,-1.9)
+	fmt.Println(v_pnt)
+
 	//return
 	n := 64
 	for i=0; i<15; i++ {

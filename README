@@ -1,0 +1,17 @@
+Install with:
+go get github.com/lkolbly/go-octree/octree
+
+Import with:
+import "github.com/lkolbly/go-octree/octree"
+
+It doesn't implement much, yet. You can make an octree:
+ot := octree.NewOctree()
+
+You can add a point to it:
+x := 0.5
+y := 0.5
+z := 0.5
+ot.Add(MyDataStructure{}, x, y, z)
+
+You can find the nearest point:
+sv, dist := ot.FindNearest(x,y,z)

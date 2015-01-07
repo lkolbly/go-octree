@@ -298,7 +298,43 @@ func (this *Octree) getNode(x, y, z float64) (*OctreeNode,Cuboid) {
 }
 
 func (this *Octree) Add(v interface{}, x float64, y float64, z float64) {
-	// Special case if x,y,z are outside the bounds
+	// If x,y,z are outside the bounds, expand the bounds
+	for !this.Bounds.isInside(x,y,z) {
+		idx := 0
+		if x < this.Bounds.X1 {
+			idx = idx | 1
+		}
+		if y < this.Bounds.Y1 {
+			idx = idx | 2
+		}
+		if z < this.Bounds.Z1 {
+			idx = idx | 4
+		}
+
+		new_root := OctreeNode{true, nil, make([]OctreeNode, 8), []OctreeValue{}}
+		new_root.Children[idx] = this.Root
+		this.Root = new_root
+
+		bounds := this.Bounds
+		if idx&1 != 0 {
+			bounds.X1 = 2.0 * (bounds.X1 - bounds.X2 / 2.0)
+		} else {
+			bounds.X2 = 2.0 * (bounds.X2 - bounds.X1 / 2.0)
+		}
+
+		if idx&2 != 0 {
+			bounds.Y1 = 2.0 * (bounds.Y1 - bounds.Y2 / 2.0)
+		} else {
+			bounds.Y2 = 2.0 * (bounds.Y2 - bounds.Y1 / 2.0)
+		}
+
+		if idx&4 != 0 {
+			bounds.Z1 = 2.0 * (bounds.Z1 - bounds.Z2 / 2.0)
+		} else {
+			bounds.Z2 = 2.0 * (bounds.Z2 - bounds.Z1 / 2.0)
+		}
+		this.Bounds = bounds
+	}
 
 	// Get the node...
 	n, _ := this.getNode(x,y,z)
