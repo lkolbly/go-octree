@@ -322,39 +322,12 @@ func (this *Octree) getNode(x, y, z float64) (*OctreeNode,Cuboid) {
 		}
 
 		idx := bounds.getIndex(x,y,z)
-		/*idx := 0
-		if x > (bounds.X2-bounds.X1)/2.0 + bounds.X1 {
-			idx = idx | 1
-		}
-		if y > (bounds.Y2-bounds.Y1)/2.0 + bounds.Y1 {
-			idx = idx | 2
-		}
-		if z > (bounds.Z2-bounds.Z1)/2.0 + bounds.Z1 {
-			idx = idx | 4
-		}*/
 
 		prev_n = n
 		has_prev = true
 		n = &n.Children[idx]
 		//fmt.Println("Going to child",idx)
 		bounds = bounds.subdivide(idx)
-		/*if idx&1 != 0 {
-			bounds.X1 = (bounds.X2-bounds.X1)/2.0 + bounds.X1
-		} else {
-			bounds.X2 = (bounds.X2-bounds.X1)/2.0 + bounds.X1
-		}
-
-		if idx&2 != 0 {
-			bounds.Y1 = (bounds.Y2-bounds.Y1)/2.0 + bounds.Y1
-		} else {
-			bounds.Y2 = (bounds.Y2-bounds.Y1)/2.0 + bounds.Y1
-		}
-
-		if idx&4 != 0 {
-			bounds.Z1 = (bounds.Z2-bounds.Z1)/2.0 + bounds.Z1
-		} else {
-			bounds.Z2 = (bounds.Z2-bounds.Z1)/2.0 + bounds.Z1
-		}*/
 	}
 }
 
@@ -398,7 +371,7 @@ func (this *Octree) Add(v interface{}, x float64, y float64, z float64) {
 	}
 
 	// Get the node...
-	n, _ := this.getNode(x,y,z)
+	n, bounds := this.getNode(x,y,z)
 	n.Values = append(n.Values, OctreeValue{x,y,z,v})
 
 	//fmt.Printf("Adding at %f,%f,%f to %p\n",x,y,z, n)
@@ -417,7 +390,9 @@ func (this *Octree) Add(v interface{}, x float64, y float64, z float64) {
 		values := n.Values
 		n.Values = []OctreeValue{}
 		for i=0; i<len(values); i++ {
-			this.Add(values[i].Element, values[i].X, values[i].Y, values[i].Z)
+			idx := bounds.getIndex(values[i].X, values[i].Y, values[i].Z)
+			n.Children[idx].Values = append(n.Children[idx].Values, values[i])
+			//this.Add(values[i].Element, values[i].X, values[i].Y, values[i].Z)
 		}
 	}
 }
