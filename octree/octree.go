@@ -10,14 +10,48 @@ type SpatialValue interface {
 type SpatialDatabase interface {
 	Add(interface{}, float64, float64, float64)
 	FindNearest(float64, float64, float64) (SpatialValue, float64)
+	IterShell(x,y,z float64, r_inner float64, r_outer float64) <-chan SpatialValue
+}
+
+func distance(x1,y1,z1, x2,y2,z2 float64) float64 {
+	dx := x2-x1
+	dy := y2-y1
+	dz := z2-z1
+	return math.Sqrt(dx*dx+dy*dy+dz*dz)
 }
 
 type Cuboid struct {
 	X1, X2, Y1, Y2, Z1, Z2 float64
 }
 
-func (this Cuboid) isInside(x,y,z float64) bool {
+func (this Cuboid) contains(x,y,z float64) bool {
 	if x > this.X1 && x < this.X2 && y > this.Y1 && y < this.Y2 && z > this.Z1 && z < this.Z2 {
+		return true
+	}
+	return false
+}
+
+func (this Cuboid) intersectsSphereShell(x,y,z,r float64) bool {
+	is_inside := distance(x,y,z, this.X1,this.Y1,this.Z1) < r
+	if (distance(x,y,z, this.X1,this.Y1,this.X2) < r) != is_inside {
+		return true
+	}
+	if (distance(x,y,z, this.X1,this.Y2,this.X1) < r) != is_inside {
+		return true
+	}
+	if (distance(x,y,z, this.X1,this.Y2,this.X2) < r) != is_inside {
+		return true
+	}
+	if (distance(x,y,z, this.X2,this.Y1,this.X1) < r) != is_inside {
+		return true
+	}
+	if (distance(x,y,z, this.X2,this.Y1,this.X2) < r) != is_inside {
+		return true
+	}
+	if (distance(x,y,z, this.X2,this.Y2,this.X1) < r) != is_inside {
+		return true
+	}
+	if (distance(x,y,z, this.X2,this.Y2,this.X2) < r) != is_inside {
 		return true
 	}
 	return false
@@ -197,6 +231,33 @@ func (this *OctreeNode) IterValues() <-chan OctreeValue {
 	return this.iterValue2(true)
 }
 
+func (this *OctreeNode) IterShell(bounds Cuboid, x,y,z float64,
+	r_inner float64, r_outer float64, ch chan<- SpatialValue) {
+	// If our bounds are entirely outside the shell, leave now
+	if !bounds.intersectsSphereShell(x,y,z, r_inner) && !bounds.intersectsSphereShell(x,y,z, r_outer) && !bounds.contains(x,y,z) {
+		fmt.Println(bounds)
+		return
+	}
+
+	// Go through our children
+	for i := range this.Children {
+		if this.Children[i].Valid {
+			this.Children[i].IterShell(bounds.subdivide(i), x,y,z,r_inner,r_outer,ch)
+		}
+	}
+
+	// Go through our values
+	for i := range this.Values {
+		dx := this.Values[i].X - x
+		dy := this.Values[i].Y - y
+		dz := this.Values[i].Z - z
+		r := math.Sqrt(dx*dx+dy*dy+dz*dz)
+		if r > r_inner && r < r_outer {
+			ch <- this.Values[i]
+		}
+	}
+}
+
 func (this *OctreeNode) getParentBounds(cur_bounds Cuboid) Cuboid {
 	bounds := cur_bounds
 	parent := this.Parent
@@ -299,7 +360,7 @@ func (this *Octree) getNode(x, y, z float64) (*OctreeNode,Cuboid) {
 
 func (this *Octree) Add(v interface{}, x float64, y float64, z float64) {
 	// If x,y,z are outside the bounds, expand the bounds
-	for !this.Bounds.isInside(x,y,z) {
+	for !this.Bounds.contains(x,y,z) {
 		idx := 0
 		if x < this.Bounds.X1 {
 			idx = idx | 1
@@ -370,6 +431,15 @@ func (this *Octree) FindNearest(x, y, z float64) (SpatialValue, float64) {
 	return elem,dist
 }
 
+func (this *Octree) IterShell(x,y,z float64, r_inner float64, r_outer float64) <-chan SpatialValue {
+	ch := make(chan SpatialValue)
+	go func() {
+		this.Root.IterShell(this.Bounds, x,y,z, r_inner, r_outer, ch)
+		close(ch)
+	}()
+	return ch
+}
+
 type SpatialList struct {
 	values []OctreeValue
 }
@@ -392,6 +462,20 @@ func (this *SpatialList) FindNearest(x,y,z float64) (SpatialValue, float64) {
 		}
 	}
 	return closest, closest_dist
+}
+
+func (this *SpatialList) IterShell(x,y,z float64, r_inner float64, r_outer float64) <-chan SpatialValue {
+	ch := make(chan SpatialValue)
+	go func() {
+		for i := range this.values {
+			r := distance(x,y,z, this.values[i].X, this.values[i].Y, this.values[i].Z)
+			if r < r_outer && r > r_inner {
+				ch <- this.values[i]
+			}
+		}
+		close(ch)
+	}()
+	return ch
 }
 
 func NewList() SpatialDatabase {

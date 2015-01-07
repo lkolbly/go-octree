@@ -125,12 +125,29 @@ func main() {
 		}
 	}
 
+	// Check the IterShell
+	fmt.Println("Checking IterShell...")
+	ot = octree.NewOctree()
+	ot.Add(Foo{1}, 0.1,0.0,0.0)
+	ot.Add(Foo{2}, 0.2,0.0,0.0)
+	ot.Add(Foo{3}, 0.3,0.0,0.0)
+	ot.Add(Foo{4}, 0.4,0.0,0.0)
+	ot.Add(Foo{5}, 0.5,0.0,0.0)
+	ot.Add(Foo{6}, 0.6,0.0,0.0)
+	ot.Add(Foo{7}, 0.7,0.0,0.0)
+	ot.Add(Foo{8}, 0.8,0.0,0.0)
+	for v_pnt := range ot.IterShell(0.3,0,0, 0.15, 0.45) {
+		fmt.Println(v_pnt)
+	}
+
 	// Check adding points outside <-1,1,-1,1,-1,1>
+	fmt.Println("Checking external adding...")
 	ot.Add(Foo{1000}, -2.0, 2.0, -2.0)
 	v_pnt, _ := ot.FindNearest(-2.0,2.0,-1.9)
 	fmt.Println(v_pnt)
 
-	//return
+	return
+
 	n := 64
 	for i=0; i<15; i++ {
 		ot = octree.NewOctree()
